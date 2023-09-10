@@ -3,11 +3,12 @@ import jaLocale from "@fullcalendar/core/locales/ja";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
+import momentPlugin from "@fullcalendar/moment";
 
 const calendarEl = document.getElementById("calendar");
 
 const calendar = new Calendar(calendarEl, {
-    plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
+plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin, momentPlugin],
     // ナビゲーション
     headerToolbar: {
         left: "prev,next today",
@@ -30,7 +31,7 @@ const calendar = new Calendar(calendarEl, {
     },
     // 予定がある部分をクリック
     eventClick: function (event) {
-        alert('eventClickのイベントです');
+        editModal(event.event);
     },
     // 予定をドラッグ&ドロップ
     eventDrop: function (event, delta) {
@@ -118,7 +119,93 @@ function createModal(start) {
     toggleModal();
 }
 
+// 編集時のモーダル処理
+function editModal(event) {
+    console.log("editModal");
+    console.log(event);
+
+    // フォームの初期化
+    modalForm.reset();
+
+    formId.value = event.id;
+    formAllDay.checked = event.allDay;
+    formStartDate.value = calendar.formatDate(event.start, 'YYYY-MM-DD');
+    formStartTime.value = event.allDay ? "" : calendar.formatDate(event.start, 'HH:mm:ss');
+    formEndDate.value = event.endStr ==  "" ? calendar.formatDate(event.start, 'YYYY-MM-DD') : calendar.formatDate(event.end, 'YYYY-MM-DD');
+    formEndTime.value = event.allDay ? "" : event.endStr == "" ? calendar.formatDate(event.start, 'HH:mm:ss') : calendar.formatDate(event.end, 'HH:mm:ss');
+    formTitle.value = event.title;
+    formBody.value = event.extendedProps.body;
+
+    // ボタンの表示/非表示
+    updateButton.classList.remove('hidden');
+    deleteButton.classList.remove('hidden');
+    addButton.classList.add('hidden');
+
+    // モーダル表示
+    updateForm();
+    toggleModal();
+}
+
+
+// 登録ボタンの処理
+addButton.addEventListener('click', function () {
+    console.log("addButton");
+    const isAllDay = formAllDay.checked;
+    const data = {
+        title: formTitle.value,
+        body: formBody.value,
+        start: isAllDay ? formStartDate.value : formStartDate.value + ' ' + formStartTime.value,
+        end: isAllDay ? formEndDate.value : formEndDate.value + ' ' + formEndTime.value,
+        type: 'add'
+    };
+    axios.post('/calendar/action', data)
+        .then((response) => {
+            // 予定をカレンダーに追加
+            calendar.addEvent(response.data);
+            toggleModal();
+        });
+});
+
+// 更新ボタンの処理
+updateButton.addEventListener('click', function () {
+    const isAllDay = formAllDay.checked;
+    const data = {
+        id: formId.value,
+        title: formTitle.value,
+        body: formBody.value,
+        start: isAllDay ? formStartDate.value : formStartDate.value + ' ' + formStartTime.value,
+        end: isAllDay ? formEndDate.value : formEndDate.value + ' ' + formEndTime.value,
+        type: 'update'
+    };
+    axios.post('/calendar/action', data)
+        .then((response) => {
+            const event = calendar.getEventById(formId.value);
+
+            // 予定を更新(削除して作成)
+            event.remove();
+            calendar.addEvent(response.data);
+
+            toggleModal();
+        });
+});
+
+
 // キャンセルボタンの処理
 closeModalButton.addEventListener('click', function() {
     toggleModal()
+});
+
+// 削除ボタンの処理
+deleteButton.addEventListener('click', function () {
+    const formId = modalForm.querySelector('input[name="id"]');
+    const data = {
+        id: formId.value,
+        type: 'delete'
+    };
+    axios.post('/calendar/action', data)
+        .then((response) => {
+            const event = calendar.getEventById(formId.value);
+            event.remove();
+            toggleModal();
+        });
 });

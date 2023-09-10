@@ -71,6 +71,7 @@
                 </div>
             </div>
         </div>
+        <div id="modal-id-bg" class="hidden opacity-25 fixed inset-0 z-40 bg-black"></div>
     </section>
     <!-- モーダルエリアここまで -->
 
